@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cubic Function Explorer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50">
+
+    <div class="flex flex-col md:flex-row gap-6 p-6 max-w-[1200px] mx-auto font-sans min-h-screen">
+        <!-- Main Graph Container -->
+        <div class="flex-1 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold text-slate-800">Cubic Function Explorer</h1>
+                <p class="text-slate-500 mt-1">Drag anywhere on the grid or use the slider to move the tangent point.</p>
+            </div>
+
+            <div class="relative w-full aspect-[8/5] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shrink-0">
+                <svg 
+                    id="math-svg"
+                    viewBox="0 0 800 500" 
+                    class="w-full h-full touch-none"
+                    preserveAspectRatio="xMidYMid meet"
+                >
+                    <defs>
+                        <clipPath id="graphClip">
+                            <rect x="0" y="0" width="800" height="500" />
+                        </clipPath>
+                    </defs>
+
+                    <!-- Event catcher background -->
+                    <rect 
+                        id="event-catcher"
+                        x="0" y="0" width="800" height="500" 
+                        fill="transparent" 
+                        class="cursor-crosshair"
+                    />
+
+                    <!-- Grid & Axes generated via JS -->
+                    <g id="grid" class="text-slate-200 stroke-current" stroke-width="1"></g>
+                    <g id="axes" class="text-slate-400 stroke-current" stroke-width="2"></g>
+                    <g id="labels" class="text-xs fill-slate-400 font-medium select-none pointer-events-none"></g>
+
+                    <!-- Functions (Clipping applied so they don't draw outside the box) -->
+                    <g clip-path="url(#graphClip)" class="pointer-events-none">
+                        <!-- Integral F(x) -->
+                        <path id="path-integral" fill="none" stroke="#22c55e" stroke-width="2" opacity="0.6" stroke-dasharray="4 4"/>
+                        
+                        <!-- Derivative f'(x) -->
+                        <path id="path-derivative" fill="none" stroke="#ef4444" stroke-width="2" opacity="0.6"/>
+
+                        <!-- Main Function f(x) -->
+                        <path id="path-f" fill="none" stroke="#3b82f6" stroke-width="3" />
+
+                        <!-- Tangent Line -->
+                        <line id="line-tangent" stroke="#f97316" stroke-width="2" stroke-dasharray="6 4" />
+
+                        <!-- Tangent Point -->
+                        <circle id="circle-tangent-glow" r="8" fill="#f97316" opacity="0.3" />
+                        <circle id="circle-tangent" r="4" fill="#ea580c" />
+                        
+                        <!-- Point Coordinates text -->
+                        <rect id="rect-coord" width="100" height="24" rx="4" fill="white" fill-opacity="0.8" />
+                        <text id="text-coord" class="text-xs font-semibold fill-slate-700"></text>
+                    </g>
+                </svg>
+            </div>
+
+            <!-- Legend -->
+            <div class="flex flex-wrap gap-4 mt-6 px-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-1 bg-blue-500 rounded-full"></div>
+                    <span class="text-sm font-medium text-slate-700">f(x) Function</span>
+                </div>
+                <div id="legend-derivative" class="flex items-center gap-2">
+                    <div class="w-4 h-1 bg-red-500 rounded-full"></div>
+                    <span class="text-sm font-medium text-slate-700">f'(x) Derivative</span>
+                </div>
+                <div id="legend-integral" class="flex items-center gap-2">
+                    <div class="w-4 h-1 border-t-2 border-dashed border-green-500"></div>
+                    <span class="text-sm font-medium text-slate-700">F(x) Integral</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-1 border-t-2 border-dashed border-orange-500"></div>
+                    <span class="text-sm font-medium text-slate-700">Tangent</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Sidebar -->
+        <div class="w-full md:w-80 flex flex-col gap-4">
+            <!-- Current State Info -->
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Current Values</h2>
+                
+                <div class="space-y-4">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-sm font-medium text-slate-500 flex justify-between">
+                            <span>Tangent Point x₀</span>
+                            <span class="text-blue-600 font-bold" id="lbl-x0">1.50</span>
+                        </label>
+                        <input 
+                            id="slider-x0" type="range" min="-5" max="5" step="0.05" value="1.5"
+                            class="w-full accent-blue-500"
+                        />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-100">
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <div class="text-xs text-slate-500 mb-1">f(x₀)</div>
+                            <div class="font-mono text-blue-600 font-bold" id="lbl-y0">0.00</div>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <div class="text-xs text-slate-500 mb-1">Slope f'(x₀)</div>
+                            <div class="font-mono text-red-600 font-bold" id="lbl-slope">0.00</div>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2">
+                            <div class="text-xs text-slate-500 mb-1">Area from 0: F(x₀)</div>
+                            <div class="font-mono text-green-600 font-bold" id="lbl-F">0.00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Function Settings -->
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 flex-1">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Function Settings</h2>
+                
+                <div id="formula-text" class="mb-6 p-3 bg-slate-800 text-white rounded-xl font-mono text-sm overflow-x-auto whitespace-nowrap shadow-inner">
+                    <!-- Updated via JS -->
+                </div>
+
+                <div class="space-y-5">
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-medium text-slate-700">a (x³)</span>
+                            <span class="text-slate-500" id="lbl-a">0.5</span>
+                        </div>
+                        <input id="slider-a" type="range" min="-1" max="1" step="0.1" value="0.5" class="w-full accent-slate-600"/>
+                    </div>
+                    
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-medium text-slate-700">b (x²)</span>
+                            <span class="text-slate-500" id="lbl-b">0</span>
+                        </div>
+                        <input id="slider-b" type="range" min="-3" max="3" step="0.5" value="0" class="w-full accent-slate-600"/>
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-medium text-slate-700">c (x)</span>
+                            <span class="text-slate-500" id="lbl-c">-3</span>
+                        </div>
+                        <input id="slider-c" type="range" min="-5" max="5" step="0.5" value="-3" class="w-full accent-slate-600"/>
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-medium text-slate-700">d (constant)</span>
+                            <span class="text-slate-500" id="lbl-d">0</span>
+                        </div>
+                        <input id="slider-d" type="range" min="-10" max="10" step="1" value="0" class="w-full accent-slate-600"/>
+                    </div>
+                </div>
+
+                <div class="mt-8 space-y-3 pt-6 border-t border-slate-100">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input 
+                            id="check-derivative" type="checkbox" checked
+                            class="w-5 h-5 rounded border-slate-300 text-red-500 focus:ring-red-500"
+                        />
+                        <span class="text-sm font-medium text-slate-700">Show Derivative</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input 
+                            id="check-integral" type="checkbox" checked
+                            class="w-5 h-5 rounded border-slate-300 text-green-500 focus:ring-green-500"
+                        />
+                        <span class="text-sm font-medium text-slate-700">Show Integral</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants & Coordinates configuration
+        const minX = -5, maxX = 5;
+        const minY = -20, maxY = 20;
+        const width = 800, height = 500;
+
+        function mapX(x) { return ((x - minX) / (maxX - minX)) * width; }
+        function mapY(y) { return height - ((y - minY) / (maxY - minY)) * height; }
+
+        // Application State
+        let x0 = 1.5;
+        let a = 0.5, b = 0, c = -3, d = 0;
+        let showDerivative = true, showIntegral = true;
+        let isDragging = false;
+
+        // DOM Elements setup
+        const mathSvg = document.getElementById('math-svg');
+        const eventCatcher = document.getElementById('event-catcher');
+        
+        // Dynamic SVG Path References
+        const pathIntegral = document.getElementById('path-integral');
+        const pathDerivative = document.getElementById('path-derivative');
+        const pathF = document.getElementById('path-f');
+        const lineTangent = document.getElementById('line-tangent');
+        const circleGlow = document.getElementById('circle-tangent-glow');
+        const circleCenter = document.getElementById('circle-tangent');
+        const rectCoord = document.getElementById('rect-coord');
+        const textCoord = document.getElementById('text-coord');
+
+        // Main Drawing Function (Generates SVG path instructions)
+        function generatePath(fn) {
+            let path = '';
+            const step = 0.05;
+            for (let x = minX; x <= maxX; x += step) {
+                const px = mapX(x);
+                const py = mapY(fn(x));
+                if (x === minX) path += `M ${px} ${py} `;
+                else path += `L ${px} ${py} `;
+            }
+            return path;
+        }
+
+        // Update Routine based on Current State
+        function updateGraph() {
+            // Evaluated Math functions based on current parameters
+            const fn = (x) => a * Math.pow(x, 3) + b * Math.pow(x, 2) + c * x + d;
+            const dfn = (x) => 3 * a * Math.pow(x, 2) + 2 * b * x + c;
+            const Ffn = (x) => (a / 4) * Math.pow(x, 4) + (b / 3) * Math.pow(x, 3) + (c / 2) * Math.pow(x, 2) + d * x;
+
+            const y0 = fn(x0);
+            const slope = dfn(x0);
+            const tangentY1 = slope * (minX - x0) + y0;
+            const tangentY2 = slope * (maxX - x0) + y0;
+
+            // Draw Integral
+            if (showIntegral) {
+                pathIntegral.setAttribute('d', generatePath(Ffn));
+                pathIntegral.style.display = 'block';
+                document.getElementById('legend-integral').style.display = 'flex';
+            } else {
+                pathIntegral.style.display = 'none';
+                document.getElementById('legend-integral').style.display = 'none';
+            }
+
+            // Draw Derivative
+            if (showDerivative) {
+                pathDerivative.setAttribute('d', generatePath(dfn));
+                pathDerivative.style.display = 'block';
+                document.getElementById('legend-derivative').style.display = 'flex';
+            } else {
+                pathDerivative.style.display = 'none';
+                document.getElementById('legend-derivative').style.display = 'none';
+            }
+
+            // Draw Main Function
+            pathF.setAttribute('d', generatePath(fn));
+
+            // Draw Tangent line and points
+            lineTangent.setAttribute('x1', mapX(minX));
+            lineTangent.setAttribute('y1', mapY(tangentY1));
+            lineTangent.setAttribute('x2', mapX(maxX));
+            lineTangent.setAttribute('y2', mapY(tangentY2));
+
+            const cx = mapX(x0);
+            const cy = mapY(y0);
+
+            circleGlow.setAttribute('cx', cx); circleGlow.setAttribute('cy', cy);
+            circleCenter.setAttribute('cx', cx); circleCenter.setAttribute('cy', cy);
+
+            // Coordinates box
+            rectCoord.setAttribute('x', cx + 10); rectCoord.setAttribute('y', cy - 30);
+            textCoord.setAttribute('x', cx + 16); textCoord.setAttribute('y', cy - 14);
+            textCoord.textContent = `(${x0.toFixed(2)}, ${y0.toFixed(2)})`;
+
+            // Update UI Sidebar Labels
+            document.getElementById('lbl-x0').textContent = x0.toFixed(2);
+            document.getElementById('slider-x0').value = x0;
+            document.getElementById('lbl-y0').textContent = y0.toFixed(2);
+            document.getElementById('lbl-slope').textContent = slope.toFixed(2);
+            document.getElementById('lbl-F').textContent = Ffn(x0).toFixed(2);
+
+            const bSign = b >= 0 ? '+' : '-';
+            const cSign = c >= 0 ? '+' : '-';
+            const dSign = d >= 0 ? '+' : '-';
+            document.getElementById('formula-text').textContent = 
+                `f(x) = ${a}x³ ${bSign} ${Math.abs(b)}x² ${cSign} ${Math.abs(c)}x ${dSign} ${Math.abs(d)}`;
+        }
+
+        // Initialize static background components (Grid and Axes)
+        function initGrid() {
+            const gridGroup = document.getElementById('grid');
+            const axesGroup = document.getElementById('axes');
+            const labelsGroup = document.getElementById('labels');
+            const svgNS = "http://www.w3.org/2000/svg";
+
+            // Vertical lines and X labels
+            for (let x = -5; x <= 5; x++) {
+                const line = document.createElementNS(svgNS, "line");
+                line.setAttribute('x1', mapX(x)); line.setAttribute('y1', 0);
+                line.setAttribute('x2', mapX(x)); line.setAttribute('y2', height);
+                gridGroup.appendChild(line);
+
+                if (x !== 0) {
+                    const text = document.createElementNS(svgNS, "text");
+                    text.setAttribute('x', mapX(x)); text.setAttribute('y', mapY(0) + 16);
+                    text.setAttribute('text-anchor', 'middle');
+                    text.textContent = x;
+                    labelsGroup.appendChild(text);
+                }
+            }
+            // Horizontal lines and Y labels
+            for (let y = -20; y <= 20; y += 5) {
+                const line = document.createElementNS(svgNS, "line");
+                line.setAttribute('x1', 0); line.setAttribute('y1', mapY(y));
+                line.setAttribute('x2', width); line.setAttribute('y2', mapY(y));
+                gridGroup.appendChild(line);
+
+                if (y !== 0) {
+                    const text = document.createElementNS(svgNS, "text");
+                    text.setAttribute('x', mapX(0) - 8); text.setAttribute('y', mapY(y) + 4);
+                    text.setAttribute('text-anchor', 'end');
+                    text.textContent = y;
+                    labelsGroup.appendChild(text);
+                }
+            }
+
+            // Central X and Y Axes
+            const xAxis = document.createElementNS(svgNS, "line");
+            xAxis.setAttribute('x1', 0); xAxis.setAttribute('y1', mapY(0));
+            xAxis.setAttribute('x2', width); xAxis.setAttribute('y2', mapY(0));
+            axesGroup.appendChild(xAxis);
+
+            const yAxis = document.createElementNS(svgNS, "line");
+            yAxis.setAttribute('x1', mapX(0)); yAxis.setAttribute('y1', 0);
+            yAxis.setAttribute('x2', mapX(0)); yAxis.setAttribute('y2', height);
+            axesGroup.appendChild(yAxis);
+        }
+
+        // Pointer Mapping Helper
+        function updateFromPointer(e) {
+            const pt = mathSvg.createSVGPoint();
+            pt.x = e.clientX;
+            pt.y = e.clientY;
+            const svgP = pt.matrixTransform(mathSvg.getScreenCTM().inverse());
+            
+            let newX0 = (svgP.x / width) * (maxX - minX) + minX;
+            newX0 = Math.max(minX, Math.min(maxX, newX0)); // Ensure constraints
+            x0 = Number(newX0.toFixed(2));
+            updateGraph();
+        }
+
+        // Event Listeners (Graph Interaction)
+        eventCatcher.addEventListener('pointerdown', (e) => {
+            eventCatcher.setPointerCapture(e.pointerId);
+            isDragging = true;
+            eventCatcher.classList.remove('cursor-crosshair');
+            eventCatcher.classList.add('cursor-grabbing');
+            updateFromPointer(e);
+        });
+
+        eventCatcher.addEventListener('pointermove', (e) => {
+            if (!isDragging) return;
+            updateFromPointer(e);
+        });
+
+        const handlePointerUp = (e) => {
+            eventCatcher.releasePointerCapture(e.pointerId);
+            isDragging = false;
+            eventCatcher.classList.add('cursor-crosshair');
+            eventCatcher.classList.remove('cursor-grabbing');
+        };
+
+        eventCatcher.addEventListener('pointerup', handlePointerUp);
+        eventCatcher.addEventListener('pointercancel', handlePointerUp);
+
+        // Event Listeners (Controls)
+        document.getElementById('slider-x0').addEventListener('input', (e) => { x0 = parseFloat(e.target.value); updateGraph(); });
+        document.getElementById('slider-a').addEventListener('input', (e) => { a = parseFloat(e.target.value); document.getElementById('lbl-a').textContent = a; updateGraph(); });
+        document.getElementById('slider-b').addEventListener('input', (e) => { b = parseFloat(e.target.value); document.getElementById('lbl-b').textContent = b; updateGraph(); });
+        document.getElementById('slider-c').addEventListener('input', (e) => { c = parseFloat(e.target.value); document.getElementById('lbl-c').textContent = c; updateGraph(); });
+        document.getElementById('slider-d').addEventListener('input', (e) => { d = parseFloat(e.target.value); document.getElementById('lbl-d').textContent = d; updateGraph(); });
+
+        document.getElementById('check-derivative').addEventListener('change', (e) => { showDerivative = e.target.checked; updateGraph(); });
+        document.getElementById('check-integral').addEventListener('change', (e) => { showIntegral = e.target.checked; updateGraph(); });
+
+        // Bootstrap App
+        initGrid();
+        updateGraph();
+
+    </script>
+</body>
+</html>
